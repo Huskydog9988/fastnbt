@@ -22,6 +22,10 @@ impl Block {
         &self.name
     }
 
+    pub fn archetype(&self) -> &BlockArchetype {
+        &self.archetype
+    }
+
     pub fn snowy(&self) -> bool {
         self.archetype == BlockArchetype::Snowy
     }

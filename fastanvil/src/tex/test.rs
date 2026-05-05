@@ -277,12 +277,14 @@ fn flatten_cobblestone_model_to_cube_generic() {
         .unwrap();
 
     let textures = model.textures.unwrap();
-    assert_eq!("minecraft:block/cobblestone", textures["up"]);
-    assert_eq!("minecraft:block/cobblestone", textures["down"]);
-    assert_eq!("minecraft:block/cobblestone", textures["north"]);
-    assert_eq!("minecraft:block/cobblestone", textures["south"]);
-    assert_eq!("minecraft:block/cobblestone", textures["west"]);
-    assert_eq!("minecraft:block/cobblestone", textures["east"]);
+    let faces = ["up", "down", "north", "south", "west", "east"];
+    for face in faces {
+        let tex = match textures[face] {
+            ModelTexture::Texture(ref t) => t,
+            ModelTexture::Variable(_) => panic!("Unexpected variable texture"), // TODO: Handle variable textures in parent models.
+        };
+        assert_eq!("minecraft:block/cobblestone", tex);
+    }
     assert_eq!("#up", model.elements.unwrap()[0].faces["up"].texture)
 }
 

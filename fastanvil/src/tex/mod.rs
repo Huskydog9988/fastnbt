@@ -32,11 +32,26 @@ pub struct Part {
     pub apply: Variants,
 }
 
+// https://minecraft.wiki/w/Model#Block_models
 #[derive(Deserialize, Debug, Clone)]
 pub struct Model {
+    pub ambientocclusion: Option<bool>,
     pub parent: Option<String>,
-    pub textures: Option<HashMap<String, String>>,
+    pub textures: Option<HashMap<String, ModelTexture>>,
     pub elements: Option<Vec<Element>>,
+}
+
+#[derive(Deserialize, Debug, Clone)]
+#[serde(untagged)]
+pub enum ModelTexture {
+    Texture(String),
+    Variable(ModelTextureVariable),
+}
+
+#[derive(Deserialize, Debug, Clone)]
+pub struct ModelTextureVariable {
+    pub sprite: Option<String>,
+    pub force_translucent: Option<bool>,
 }
 
 #[derive(Deserialize, Debug, Clone)]
@@ -45,6 +60,7 @@ pub struct Element {
     pub to: [f32; 3],
     pub faces: HashMap<String, Face>,
     pub rotation: Option<Rotation>,
+    pub light_emission: Option<u8>,
 }
 
 #[derive(Deserialize, Debug, Clone)]
@@ -96,12 +112,19 @@ fn merge_models(child: &Model, mut parent: Model) -> Result<Model> {
         // We need to record the textures we do have, as they will probably
         // be variables for textures in the parent model.
         for (_, tvalue) in parent_textures.iter_mut() {
+            let tvalue = match tvalue {
+                ModelTexture::Texture(t) => t,
+                ModelTexture::Variable(_) => {
+                    return Err(Error::Unsupported); // TODO: Handle texture variables in parent models.
+                }
+            };
+
             // If the value is a variable (ie begins with "#"), we need to
             // look it up in the current texture map. Given that we process
             // the models from child to parent, they should always be
             // present.
             if let Some(rest) = tvalue.strip_prefix('#') {
-                *tvalue = child_textures
+                *tvalue = match child_textures
                     .get(rest) // we just checked with 'starts_with'.
                     .ok_or_else(|| {
                         Error::MissingTextureVariable(
@@ -110,8 +133,10 @@ fn merge_models(child: &Model, mut parent: Model) -> Result<Model> {
                             "?".to_owned(),
                             (*tvalue).clone(),
                         )
-                    })?
-                    .clone()
+                    })? {
+                    ModelTexture::Texture(s) => s.clone(),
+                    ModelTexture::Variable(_) => return Err(Error::Unsupported),
+                }
             }
         }
     }
@@ -199,9 +224,13 @@ impl Renderer {
                     })?
                     .clone()
             }
-            None => (*tex).clone(),
+            None => ModelTexture::Texture((*tex).clone()),
         };
 
+        let tex = match tex {
+            ModelTexture::Texture(t) => t,
+            ModelTexture::Variable(_) => return Err(Error::Unsupported),
+        };
         self.extract_texture(&tex)
     }
 

@@ -80,6 +80,12 @@ pub struct Face {
     uv: Option<[f32; 4]>,
 }
 
+impl Face {
+    pub fn texture(&self) -> &str {
+        &self.texture
+    }
+}
+
 pub type Texture = Vec<u8>; // RGBA 16x16 image.
 
 #[derive(Debug)]
